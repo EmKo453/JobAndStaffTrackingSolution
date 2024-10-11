@@ -53,6 +53,8 @@ def on_message(client, userdata, message):
 
     # Convert datetime timestamp to string
     timestamp = m_timestamp[11:19] + (" ") + m_timestamp[0:10]
+    
+    m_timestamp = convert_string_to_datetime(timestamp)
 
     if (id[0] == 'E'):
         # Add employee to database
@@ -74,18 +76,26 @@ def add_job_scan_to_db_tables(id, timestamp, datetimestamp, location):
     # Closes a job by updating the stop time of the jobs table and adding "stop" entries to the scan event table
     # Inputs: id - job id, timestamp - string timestamp, datetimestamp - datetime timestamp, location - station name
 
-    mydb = mysql.connector.connect(host=setup.host, user=setup.user, password=setup.password, database=setup.database, port=setup.port)
-    mycursor = mydb.cursor()
-
     if (is_duplicate(id, location)):
+        
+        start_time = get_start_time_of_open_entry(id, location)
+        
+        mydb = mysql.connector.connect(host=setup.host, user=setup.user, password=setup.password, database=setup.database, port=setup.port)
+        mycursor = mydb.cursor()
+        
         # Stop job at the station
         mycursor.execute("UPDATE " + setup.job_table + " SET STOP=%s WHERE JOB_ID=%s AND STOP IS NULL AND STATION=%s", (timestamp, id, location))
         
-        start_time = get_start_time_of_open_entry(id, location)
-        calculate_total_FTE_hours(id, location, start_time, timestamp, datetimestamp)
+        mydb.commit()
+        mycursor.close()
+        mydb.close()
+        
         update_duration(id, start_time, timestamp, timestamp, 0)
-
-        values = (datetimestamp, location, id, None, "OUT", None)
+        
+        mydb = mysql.connector.connect(host=setup.host, user=setup.user, password=setup.password, database=setup.database, port=setup.port)
+        mycursor = mydb.cursor()
+        
+        values = (datetimestamp, location, id, None, None, "FINISH")
         mycursor.execute("INSERT INTO " + setup.scan_event + " (TIMESTAMP, STATION, JOB_ID, EMPLOYEE_ID, JOB_STATUS, EMPLOYEE_STATUS) VALUES (%s, %s, %s, %s, %s, %s)", values)
 
         # Sign out all employees assigned to the job
@@ -94,12 +104,18 @@ def add_job_scan_to_db_tables(id, timestamp, datetimestamp, location):
         for i in employees:
             values = (datetimestamp, location, id, i[0], None, "OUT")
             mycursor.execute("INSERT INTO " + setup.scan_event + " (TIMESTAMP, STATION, JOB_ID, EMPLOYEE_ID, JOB_STATUS, EMPLOYEE_STATUS) VALUES (%s, %s, %s, %s, %s, %s)", values)
+        mydb.commit()
+        calculate_total_FTE_hours(id, location, start_time, timestamp, datetimestamp)
     else:
+        
+        mydb = mysql.connector.connect(host=setup.host, user=setup.user, password=setup.password, database=setup.database, port=setup.port)
+        mycursor = mydb.cursor()
+        
         # Start job at the station
         values = (id, location, timestamp, None, ("0:00:00"), 0, 0.0, ("0:00:00"), None, 0)
         mycursor.execute("INSERT INTO " + setup.job_table + " (JOB_ID, STATION, START, STOP, DURATION, MAX_NO_FTES, EMPLOYEES_PER_HOUR, TOTAL_FTE_HOURS, WARNINGS, BREAK_TIME) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", values)
 
-        values = (datetimestamp, location, id, None, "START", None)
+        values = (datetimestamp, location, id, None, None, "BEGIN")
         mycursor.execute("INSERT INTO " + setup.scan_event + " (TIMESTAMP, STATION, JOB_ID, EMPLOYEE_ID, JOB_STATUS, EMPLOYEE_STATUS) VALUES (%s, %s, %s, %s, %s, %s)", values)
 
         # Sign in all open employees into the job
@@ -109,12 +125,10 @@ def add_job_scan_to_db_tables(id, timestamp, datetimestamp, location):
             values = (datetimestamp, location, id, i[0], None, "IN")
             mycursor.execute("INSERT INTO " + setup.scan_event + " (TIMESTAMP, STATION, JOB_ID, EMPLOYEE_ID, JOB_STATUS, EMPLOYEE_STATUS) VALUES (%s, %s, %s, %s, %s, %s)", values)
         mydb.commit()
+        mycursor.close()
+        mydb.close()
 
         increment_maximum_FTEs(id)
-
-    mydb.commit()
-    mycursor.close()
-    mydb.close()
 # ADD_JOB_SCAN_TO_DB_TABLES  
 
 # ADD_EMPLOYEE_SCAN_TO_DB_TABLES
@@ -126,20 +140,19 @@ def add_employee_scan_to_db_tables(id, timestamp, datetimestamp, location):
     # Closes an employee by updating the stop time of the employees table and adding "stop" entries to the scan event table
     # Inputs: id - employee id, timestamp - string timestamp, datetimestamp - datetime timestamp, location - station name
 
-    mydb = mysql.connector.connect(host=setup.host, user=setup.user, password=setup.password, database=setup.database, port=setup.port)
-    mycursor = mydb.cursor()
-
     if (is_duplicate(id, location)):
         # Stop employee at the station
 
         start_time = get_start_time_of_open_entry(id, location)
         update_duration(id, start_time, timestamp, timestamp, 0)
 
+        mydb = mysql.connector.connect(host=setup.host, user=setup.user, password=setup.password, database=setup.database, port=setup.port)
+        mycursor = mydb.cursor()
         mycursor.execute("UPDATE " + setup.employee_table + " SET STOP=%s WHERE EMPLOYEE_ID=%s AND STOP IS NULL AND STATION=%s", (timestamp, id, location))
 
         mycursor.execute("SELECT * FROM " + setup.job_table + " WHERE STOP IS NULL AND STATION=%s", ([location]))
         jobs = mycursor.fetchall()
-
+        
         # Sign out the employee if assigned to a job
         for i in jobs:
             values = (datetimestamp, location, i[0], id, None, "OUT")
@@ -148,7 +161,14 @@ def add_employee_scan_to_db_tables(id, timestamp, datetimestamp, location):
         # Stop employee at the station
         values = (datetimestamp, location, None, id, None, "STOP")
         mycursor.execute("INSERT INTO " + setup.scan_event + " (TIMESTAMP, STATION, JOB_ID, EMPLOYEE_ID, JOB_STATUS, EMPLOYEE_STATUS) VALUES (%s, %s, %s, %s, %s, %s)", values)
+        
+        mydb.commit()
+        mycursor.close()
+        mydb.close() 
     else:
+        mydb = mysql.connector.connect(host=setup.host, user=setup.user, password=setup.password, database=setup.database, port=setup.port)
+        mycursor = mydb.cursor()
+        
         # Start employee at the station
         values = (id, location, timestamp, None, ("0:00:00"), None, 0)
         mycursor.execute("INSERT INTO " + setup.employee_table + " (EMPLOYEE_ID, STATION, START, STOP, DURATION, WARNINGS, BREAK_TIME) VALUES (%s, %s, %s, %s, %s, %s, %s)", values)
@@ -160,11 +180,12 @@ def add_employee_scan_to_db_tables(id, timestamp, datetimestamp, location):
         for i in jobs:
             values = (datetimestamp, location, i[0], id, None, "IN")
             mycursor.execute("INSERT INTO " + setup.scan_event + " (TIMESTAMP, STATION, JOB_ID, EMPLOYEE_ID, JOB_STATUS, EMPLOYEE_STATUS) VALUES (%s, %s, %s, %s, %s, %s)", values)
-        increment_maximum_FTEs(id)
+        
         mydb.commit()
-    mydb.commit()
-    mycursor.close()
-    mydb.close()
+        mycursor.close()
+        mydb.close()    
+        
+        increment_maximum_FTEs(id)
 # ADD_EMPLOYEE_SCAN_TO_DB_TABLES  
 
 # CHECK_FOR_TABLE_DUPLICATE
@@ -356,10 +377,10 @@ def calculate_total_FTE_hours(id, location, start, stop, current_time):
     job_start_time = convert_string_to_datetime(start)
 
     total_FTE_hours = datetime.timedelta(hours=0, minutes=0, seconds=0)
-
-    if (job_start_time.date() != current_time.date()):
+    
+    #if (job_start_time.date() != current_time.date()):
     # Return if job did not start today
-        return
+    #    return
 
     if (stop == None):
         job_end_time = current_time
@@ -377,7 +398,6 @@ def calculate_total_FTE_hours(id, location, start, stop, current_time):
         else:
             # Set end time to employee stop time
             employee_end_time = convert_string_to_datetime(i[3])
-
         start_time = None
         end_time = None
 
@@ -497,7 +517,6 @@ def calculate_no_of_employees_per_hour():
         while (count < job_duration_hour):
             hour_end = start_time + timedelta(hours=1)
             for j in employees:
-                print(j[0])
                 employee_start = convert_string_to_datetime(j[2])
                 if (j[3] == None):
                     employee_end = current_time
@@ -505,11 +524,9 @@ def calculate_no_of_employees_per_hour():
                     employee_end = convert_string_to_datetime(j[3])
                 if (employee_end >= start_time and employee_start <= hour_end):
                     no_of_employees += 1
-                print("number: ", no_of_employees)
             start_time = start_time + timedelta(hours=1)
             count += 1
         employees_per_hour = str(no_of_employees / job_duration_hour)[0:4]  
-        print(employees_per_hour)
         mycursor.execute("UPDATE " + setup.job_table + " SET EMPLOYEES_PER_HOUR=%s WHERE JOB_ID=%s AND STATION=%s AND START=%s AND STOP IS NULL", (employees_per_hour, i[0], i[1], i[2]))
 
     mydb.commit()
@@ -682,7 +699,7 @@ def check_for_breaks():
 close_old_jobs_and_employees()
 
 # Connect to mqtt broker
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client = mqtt.Client()
 client.connect(setup.mqttBroker,setup.mqtt_port,90)
 
 # Create thread to receive barcode scans

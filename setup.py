@@ -2,7 +2,7 @@
 ###   General   ###
 ###################
 
-Location_name = "Liquid Production"
+Location_name = "Location 1"
 
 scan_event = "scan_event"
 
@@ -12,7 +12,7 @@ break_table = "breaks"
 
 employee_table = "employees"
 
-Locations = ["Liquid Production", "Filling", "Packaging"]
+Locations = ["Location 1", "Location 2", "Location 3"]
 
 LocationsAll = ["All Locations"] + Locations
 
