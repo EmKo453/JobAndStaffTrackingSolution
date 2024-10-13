@@ -1,14 +1,10 @@
 from dash import dash_table, Dash, dcc, html, Input, Output, callback
 import pandas as pd
-import paho.mqtt.client as mqtt
 import mysql.connector
-import time, datetime
-from datetime import date, timedelta
-import threading
+import datetime
+from datetime import date
 import plotly.graph_objects as go
-import plotly_express as px
 import setup
-import main
 
 # CALC_FTES_OVER_TIME
 def calc_FTEs_over_time(location):

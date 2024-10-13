@@ -6,7 +6,6 @@ import time, datetime
 from datetime import date, timedelta
 import threading
 import plotly.graph_objects as go
-import plotly_express as px
 import setup
 
 # READ_SCANNER
@@ -459,12 +458,18 @@ def total_location_FTEs_over_time():
     mycursor.execute("SELECT * FROM " + setup.scan_event + " WHERE STATION=%s AND JOB_ID IS NULL AND TIMESTAMP LIKE '%" + current_date + "%'", ([setup.Location_name]))
     scan_data = mycursor.fetchall()
 
+    add_zero_entry = False
+
     # Increment/decrement number of FTEs
     for i in scan_data:
         if (i[6] == "START"):
             no_FTEs += 1
         elif (i[6] == "STOP"):
             no_FTEs -= 1
+        if (not add_zero_entry):
+            data['Number of Employees'].append(0)
+            data['Time'].append(i[1]) 
+            add_zero_entry = True  
         data['Number of Employees'].append(no_FTEs)
         data['Time'].append(i[1])
     

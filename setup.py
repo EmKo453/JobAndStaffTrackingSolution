@@ -2,23 +2,16 @@
 ###   General   ###
 ###################
 
-Location_name = "Location 1"
+Location_name = "Current Location" # Set to current station name
 
+Locations = ["Current Location", "Location 2", "Location 3"] # Enter all locations on the shop floor
+
+LocationsAll = ["All Locations"] + Locations # Do not modify
+
+# Enter database table names if default names not used
 scan_event = "scan_event"
-
 job_table = "jobs"
-
-break_table = "breaks"
-
 employee_table = "employees"
-
-Locations = ["Location 1", "Location 2", "Location 3"]
-
-LocationsAll = ["All Locations"] + Locations
-
-# Delete scans after 'x' amount of days
-# To stop deletion set to negative number
-clear_after_number_of_days = "dsfd"
 
 #######################
 ###   MQTT Broker   ###
@@ -32,16 +25,12 @@ mqtt_port = 1883
 ###   SQL Database   ###
 ########################
 
-# MySQL Connection locally on the computer
 host = "127.0.0.1"
-user="root"
-password="winston!!2"
-database="jobstafftrackingdatabase"
-port = 3306
 
-# MariaDB Connection on RPi
-# host = "192.168.2.124"
-# user="laptop"
-# password="coby!!2"
-# database="jobstafftrackingdatabase"
-# port = 3306
+user="root"
+
+password="winston!!2"
+
+database="jobstafftrackingdatabase"
+
+port = 3306
